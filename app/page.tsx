@@ -1,51 +1,79 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-import "./../app/app.css";
-import { Amplify } from "aws-amplify";
-import outputs from "@/amplify_outputs.json";
-import "@aws-amplify/ui-react/styles.css";
+import styles from "./styles.module.css";
+import { useMsal } from "@azure/msal-react";
+import { useSearchParams, useRouter } from "next/navigation";
 
-Amplify.configure(outputs);
+export default function DemoPage() {
+  const [statusA, setStatusA] = useState("");
+  const [statusB, setStatusB] = useState("");
+  const { instance } = useMsal();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-const client = generateClient<Schema>();
+  // Carry state across redirect:
+  useEffect(() => {
+    const qp = searchParams.get("reauth");
+    if (qp) {
+      setStatusB(
+        qp === "success" ? "M365 verified ✓" : "M365 verification failed ✗"
+      );
+      router.replace("/"); // clean URL
+      return;
+    }
 
-export default function App() {
-  const [todos, setTodos] = useState<Array<Schema["Todo"]["type"]>>([]);
+    const flag = sessionStorage.getItem("m365Reauth");
+    if (flag) {
+      setStatusB(
+        flag === "success" ? "M365 verified ✓" : "M365 verification failed ✗"
+      );
+      sessionStorage.removeItem("m365Reauth");
+      return;
+    }
 
-  function listTodos() {
-    client.models.Todo.observeQuery().subscribe({
-      next: (data) => setTodos([...data.items]),
-    });
+    // Fallback: if MSAL already has an account in cache, treat as verified
+    const accounts = instance.getAllAccounts();
+    if (accounts.length) setStatusB("M365 verified ✓");
+  }, [instance, searchParams, router]);
+
+  async function onActionA() {
+    setStatusA("Opening RDP Connection…");
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      setStatusA("Done ✓");
+    } catch {
+      setStatusA("Failed ✗");
+    }
   }
 
-  useEffect(() => {
-    listTodos();
-  }, []);
-
-  function createTodo() {
-    client.models.Todo.create({
-      content: window.prompt("Todo content"),
+  async function onActionB() {
+    setStatusB("Redirecting to Microsoft…");
+    await instance.loginRedirect({
+      scopes: ["openid", "profile", "email"],
+      prompt: "login",
+      redirectUri: `${window.location.origin}/auth/microsoft/callback`,
     });
   }
 
   return (
-    <main>
-      <h1>My todos</h1>
-      <button onClick={createTodo}>+ new</button>
-      <ul>
-        {todos.map((todo) => (
-          <li key={todo.id}>{todo.content}</li>
-        ))}
-      </ul>
-      <div>
-        🥳 App successfully hosted. Try creating a new todo.
-        <br />
-        <a href="https://docs.amplify.aws/nextjs/start/quickstart/nextjs-app-router-client-components/">
-          Review next steps of this tutorial.
-        </a>
+    <main className={styles.container}>
+      <div className={styles.wrap}>
+        <h1 className={styles.title}>Droplet Call Demo</h1>
+
+        <div className={styles.grid}>
+          <button className={styles.btn} onClick={onActionA}>
+            No Auth
+          </button>
+          <button className={styles.btn} onClick={onActionB}>
+            Auth
+          </button>
+        </div>
+
+        <pre className={styles.status}>
+          {`Action A: ${statusA || "idle"}
+Auth (M365): ${statusB || "idle"}`}
+        </pre>
       </div>
     </main>
   );

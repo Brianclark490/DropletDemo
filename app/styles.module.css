@@ -1,0 +1,31 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr)); /* equal width */
+  gap: 24px; /* even spacing */
+  margin-bottom: 16px;
+}
+
+.btn {
+  width: 100%;
+  height: 56px;             /* bigger tap target */
+  padding: 0 24px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  font-size: 18px;          /* larger text */
+  font-weight: 600;
+  cursor: pointer;
+  background: #111;         /* keep your dark look */
+  color: #fff;
+}
+
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+
+/* Optional: single-column on narrow screens */
+@media (max-width: 480px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.btn:hover {
+  background: #11da9d;
+}
